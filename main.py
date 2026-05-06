@@ -276,12 +276,12 @@ def profile(args, params):
 
 def main():
     parser = ArgumentParser()
-    parser.add_argument('--input-size', default=640, type=int)
-    parser.add_argument('--batch-size', default=16, type=int)
+    parser.add_argument('--input-size', default=int(os.getenv('INPUT_SIZE', 640)), type=int)
+    parser.add_argument('--batch-size', default=int(os.getenv('BATCH_SIZE', 16)), type=int)
     parser.add_argument('--local-rank', default=0, type=int)
     parser.add_argument('--local_rank', default=0, type=int)
-    parser.add_argument('--epochs', default=600, type=int)
-    parser.add_argument('--model', default='yolo_v11_n', type=str,
+    parser.add_argument('--epochs', default=int(os.getenv('EPOCHS', 600)), type=int)
+    parser.add_argument('--model', default=os.getenv('MODEL', 'yolo_v11_n'), type=str,
                         help='Model: yolo_v11_n/s/m/l/x, hierlight_yolo_n/s/m')
     parser.add_argument('--train', action='store_true')
     parser.add_argument('--test', action='store_true')

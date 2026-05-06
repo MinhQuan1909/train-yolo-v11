@@ -1,4 +1,7 @@
-GPUS=$1
+set -a
+source "$(dirname "$0")/.env"
+set +a
+
 PYTHON="$(dirname "$0")/.venv/bin/python"
 
 if [ ! -d "data/COCO" ]; then
@@ -9,8 +12,12 @@ if [ ! -d "data/COCO" ]; then
         --seed 42
 fi
 
+ARGS="--input-size $INPUT_SIZE --batch-size $BATCH_SIZE --epochs $EPOCHS --model $MODEL"
+[ "$TRAIN" = "true" ] && ARGS="$ARGS --train"
+[ "$TEST"  = "true" ] && ARGS="$ARGS --test"
+
 if [ "$GPUS" -eq 1 ]; then
-    $PYTHON main.py ${@:2}
+    $PYTHON main.py $ARGS
 else
-    $PYTHON -m torch.distributed.launch --nproc_per_node=$GPUS main.py ${@:2}
+    $PYTHON -m torch.distributed.launch --nproc_per_node=$GPUS main.py $ARGS
 fi

@@ -2,24 +2,50 @@ YOLOv11 re-implementation using PyTorch
 
 ### Installation
 
-```
-conda create -n YOLO python=3.10.10
-conda activate YOLO
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-pip install opencv-python
-pip install PyYAML
-pip install tqdm
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
+```bash
+uv venv .venv --python 3.10
+uv pip install -r requirements.txt --index-url https://download.pytorch.org/whl/cu128
 ```
 
-### Train
+Copy `.env.example` to `.env` and fill in your credentials:
 
-* Configure your dataset path in `main.py` for training
-* Run `bash main.sh $ --train` for training, `$` is number of GPUs
+```bash
+cp .env.example .env
+```
 
-### Test
+### Dataset
 
-* Configure your dataset path in `main.py` for testing
-* Run `python main.py --test` for testing
+Place VisDrone2019-DET dataset under `data/` then convert to YOLO format:
+
+```bash
+python utils/prepare_dataset.py \
+    --src data/VisDrone2019-DET-train \
+    --dst data/COCO \
+    --val-ratio 0.1 \
+    --seed 42
+```
+
+### Train & Test
+
+All config is in `.env`. Edit it, then run:
+
+```bash
+bash main.sh
+```
+
+Key parameters in `.env`:
+
+| Variable | Default | Description |
+|---|---|---|
+| `GPUS` | `1` | Number of GPUs |
+| `MODEL` | `yolo_v11_s` | Model variant: `yolo_v11_n/t/s/m/l/x`, `hierlight_yolo_n/s/m` |
+| `EPOCHS` | `600` | Training epochs |
+| `BATCH_SIZE` | `16` | Batch size |
+| `INPUT_SIZE` | `640` | Input image size |
+| `TRAIN` | `true` | Run training |
+| `TEST` | `false` | Run evaluation after training |
 
 ### Results
 
