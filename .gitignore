@@ -1,0 +1,27 @@
+# Environment
+.env
+.venv/
+
+# Dataset
+data/
+
+# Weights
+weights/*.pt
+weights/*.onnx
+
+# Logs
+weights/step.csv
+weights/*.png
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Cache
+*.cache
+
+# Wandb
+wandb/
