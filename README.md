@@ -46,7 +46,24 @@ Key parameters in `.env`:
 | `INPUT_SIZE` | `640` | Input image size |
 | `TRAIN` | `true` | Run training |
 | `TEST` | `false` | Run evaluation after training |
-| `WEIGHTS` | ` ` | Pretrained weights for partial loading (e.g., `weights/yolo_v11_s.pt`) |
+| `WEIGHTS` | ` ` | Pretrained backbone (e.g., `backbone/v11_n.pt`) hoặc checkpoint để resume (e.g., `weights/last.pt`) |
+
+### Resume training
+
+Nếu training bị crash, resume từ checkpoint cuối:
+
+```bash
+# Trong .env
+WEIGHTS=weights/last.pt
+```
+
+Sau đó chạy lại (phải đứng trong thư mục `train_yolov11/`):
+
+```bash
+cd train_yolov11 && ./main.sh
+```
+
+Checkpoint `last.pt` lưu model (EMA), optimizer, amp scaler, best mAP và epoch — training sẽ tiếp tục đúng từ epoch bị crash, learning rate scheduler tự khớp theo global step.
 
 ### Results
 

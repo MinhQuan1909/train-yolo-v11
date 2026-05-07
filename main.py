@@ -57,10 +57,23 @@ def train(args, params):
     model = nn.build_model(args.model, len(params['names']))
     model.cuda()
 
-    # Load pretrained weights (partial match)
+    # Load weights: detect resume checkpoint vs pretrained backbone
+    start_epoch = 0
+    best = 0
+    resume_ckpt = None
+
     if args.weights:
-        print(f'Loading pretrained weights from {args.weights}')
-        load_partial_weights(model, args.weights)
+        ckpt = torch.load(args.weights, map_location='cpu', weights_only=False)
+        if isinstance(ckpt, dict) and 'epoch' in ckpt:
+            # Resume from training checkpoint
+            resume_ckpt = ckpt
+            start_epoch = ckpt['epoch']
+            best = ckpt.get('best', 0)
+            print(f'Resuming from epoch {start_epoch}, best mAP={best:.3f}')
+            model.load_state_dict(ckpt['model'].state_dict())
+        else:
+            print(f'Loading pretrained weights from {args.weights}')
+            load_partial_weights(model, args.weights)
 
     # Optimizer
     accumulate = max(round(64 / (args.batch_size * args.world_size)), 1)
@@ -68,6 +81,9 @@ def train(args, params):
 
     optimizer = torch.optim.SGD(util.set_params(model, params['weight_decay']),
                                 params['min_lr'], params['momentum'], nesterov=True)
+
+    if resume_ckpt and 'optimizer' in resume_ckpt:
+        optimizer.load_state_dict(resume_ckpt['optimizer'])
 
     # EMA
     ema = util.EMA(model) if args.local_rank == 0 else None
@@ -98,18 +114,21 @@ def train(args, params):
                                                           device_ids=[args.local_rank],
                                                           output_device=args.local_rank)
 
-    best = 0
     amp_scale = torch.amp.GradScaler()
+    if resume_ckpt and 'amp_scale' in resume_ckpt:
+        amp_scale.load_state_dict(resume_ckpt['amp_scale'])
     criterion = util.ComputeLoss(model, params)
 
-    with open('weights/step.csv', 'w') as log:
+    csv_mode = 'a' if start_epoch > 0 else 'w'
+    with open('weights/step.csv', csv_mode) as log:
         if args.local_rank == 0:
             logger = csv.DictWriter(log, fieldnames=['epoch',
                                                      'box', 'cls', 'dfl',
                                                      'Recall', 'Precision', 'mAP@50', 'mAP'])
-            logger.writeheader()
+            if start_epoch == 0:
+                logger.writeheader()
 
-        for epoch in range(args.epochs):
+        for epoch in range(start_epoch, args.epochs):
             model.train()
             if args.distributed:
                 sampler.set_epoch(epoch)
@@ -202,12 +221,16 @@ def train(args, params):
 
                 # Save model
                 save = {'epoch': epoch + 1,
-                        'model': copy.deepcopy(ema.ema)}
+                        'model': copy.deepcopy(ema.ema),
+                        'optimizer': optimizer.state_dict(),
+                        'amp_scale': amp_scale.state_dict(),
+                        'best': best}
 
                 # Save last, best and delete
                 torch.save(save, f='./weights/last.pt')
                 if best == last[0]:
                     torch.save(save, f='./weights/best.pt')
+                    print(f'New best checkpoint saved: epoch {epoch + 1}, mAP={best:.3f}')
                 del save
 
     if args.local_rank == 0:
