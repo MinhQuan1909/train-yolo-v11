@@ -22,10 +22,45 @@ load_dotenv()
 data_dir = 'data/COCO'
 
 
+def load_partial_weights(model, weights_path):
+    """Load matching weights from a pretrained checkpoint into the model.
+    Skips layers with mismatched names or shapes. Returns (matched, total) counts."""
+    ckpt = torch.load(weights_path, map_location='cpu', weights_only=False)
+    if 'model' in ckpt:
+        pretrained = ckpt['model']
+        if hasattr(pretrained, 'state_dict'):
+            pretrained = pretrained.state_dict()
+    else:
+        pretrained = ckpt
+
+    model_dict = model.state_dict()
+    matched, skipped = {}, []
+    for k, v in pretrained.items():
+        if k in model_dict and v.shape == model_dict[k].shape:
+            matched[k] = v
+        elif k in model_dict:
+            skipped.append(f'{k}: shape {v.shape} != {model_dict[k].shape}')
+
+    model_dict.update(matched)
+    model.load_state_dict(model_dict)
+    matched_params = sum(v.numel() for v in matched.values())
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f'Partial load: {len(matched)}/{len(model_dict)} keys, '
+          f'{matched_params:,}/{total_params:,} params ({matched_params/total_params*100:.1f}%)')
+    if skipped:
+        print(f'  Skipped {len(skipped)} keys with shape mismatch')
+    return len(matched), len(model_dict)
+
+
 def train(args, params):
     # Model
     model = nn.build_model(args.model, len(params['names']))
     model.cuda()
+
+    # Load pretrained weights (partial match)
+    if args.weights:
+        print(f'Loading pretrained weights from {args.weights}')
+        load_partial_weights(model, args.weights)
 
     # Optimizer
     accumulate = max(round(64 / (args.batch_size * args.world_size)), 1)
@@ -119,8 +154,8 @@ def train(args, params):
 
                 # Optimize
                 if step % accumulate == 0:
-                    # amp_scale.unscale_(optimizer)  # unscale gradients
-                    # util.clip_gradients(model)  # clip gradients
+                    amp_scale.unscale_(optimizer)  # unscale gradients
+                    util.clip_gradients(model)  # clip gradients
                     amp_scale.step(optimizer)  # optimizer.step
                     amp_scale.update()
                     optimizer.zero_grad()
@@ -198,7 +233,7 @@ def test(args, params, model=None):
     plot = False
     if not model:
         plot = True
-        model = torch.load(f='./weights/best.pt', map_location='cuda')
+        model = torch.load(f='./weights/best.pt', map_location='cuda', weights_only=False)
         model = model['model'].float().fuse()
 
     model.half()
@@ -285,6 +320,8 @@ def main():
                         help='Model: yolo_v11_n/s/m/l/x, hierlight_yolo_n/s/m')
     parser.add_argument('--train', action='store_true')
     parser.add_argument('--test', action='store_true')
+    parser.add_argument('--weights', default=os.getenv('WEIGHTS', ''), type=str,
+                        help='Pretrained weights for partial loading')
 
     args = parser.parse_args()
 

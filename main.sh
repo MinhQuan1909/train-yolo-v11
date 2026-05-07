@@ -15,6 +15,7 @@ fi
 ARGS="--input-size $INPUT_SIZE --batch-size $BATCH_SIZE --epochs $EPOCHS --model $MODEL"
 [ "$TRAIN" = "true" ] && ARGS="$ARGS --train"
 [ "$TEST"  = "true" ] && ARGS="$ARGS --test"
+[ -n "$WEIGHTS" ] && ARGS="$ARGS --weights $WEIGHTS"
 
 if [ "$GPUS" -eq 1 ]; then
     $PYTHON main.py $ARGS

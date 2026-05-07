@@ -4,10 +4,13 @@
 
 # Dataset
 data/
+data_val/
 
 # Weights
 weights/*.pt
 weights/*.onnx
+backbone/
+weights*
 
 # Logs
 weights/step.csv

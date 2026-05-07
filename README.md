@@ -46,6 +46,7 @@ Key parameters in `.env`:
 | `INPUT_SIZE` | `640` | Input image size |
 | `TRAIN` | `true` | Run training |
 | `TEST` | `false` | Run evaluation after training |
+| `WEIGHTS` | ` ` | Pretrained weights for partial loading (e.g., `weights/yolo_v11_s.pt`) |
 
 ### Results
 

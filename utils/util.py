@@ -51,7 +51,7 @@ def export_onnx(args):
     outputs = ['outputs']
     dynamic = {'outputs': {0: 'batch', 1: 'anchors'}}
 
-    m = torch.load('./weights/best.pt')['model'].float()
+    m = torch.load('./weights/best.pt', weights_only=False)['model'].float()
     x = torch.zeros((1, 3, args.input_size, args.input_size))
 
     torch.onnx.export(m.cpu(), x.cpu(),
@@ -277,7 +277,7 @@ def compute_ap(tp, conf, output, target, plot=False, names=(), eps=1E-16):
 
             # Integrate area under curve
             x = numpy.linspace(start=0, stop=1, num=101)  # 101-point interp (COCO)
-            ap[ci, j] = numpy.trapz(numpy.interp(x, m_rec, m_pre), x)  # integrate
+            ap[ci, j] = numpy.trapezoid(numpy.interp(x, m_rec, m_pre), x)  # integrate
             if plot and j == 0:
                 py.append(numpy.interp(px, m_rec, m_pre))  # precision at mAP@0.5
 
@@ -330,7 +330,7 @@ def compute_iou(box1, box2, eps=1e-7):
 
 
 def strip_optimizer(filename):
-    x = torch.load(filename, map_location="cpu")
+    x = torch.load(filename, map_location="cpu", weights_only=False)
     x['model'].half()  # to FP16
     for p in x['model'].parameters():
         p.requires_grad = False
@@ -344,7 +344,7 @@ def clip_gradients(model, max_norm=10.0):
 
 def load_weight(model, ckpt):
     dst = model.state_dict()
-    src = torch.load(ckpt)['model'].float().cpu()
+    src = torch.load(ckpt, weights_only=False)['model'].float().cpu()
 
     ckpt = {}
     for k, v in src.state_dict().items():
